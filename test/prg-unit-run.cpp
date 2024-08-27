@@ -15,7 +15,9 @@
 // limitations under the License.
 
 #include "../../prg/command.hpp"
-#include "../../prg/run.hpp"
+#include "../../prg/detach.hpp"
+#include "../../prg/info.hpp"
+#include "../../prg/util.hpp"
 
 #include <iostream>
 #include <utility>

@@ -26,11 +26,10 @@ dmitigr_libs_set_library_info(prg 0 0 0 "Program stuff")
 
 set(dmitigr_prg_headers
   command.hpp
-  detach.hpp
   exceptions.hpp
-  run.hpp
+  info.hpp
+  util.hpp
   )
-
 if(UNIX)
   list(APPEND dmitigr_prg_headers detach.hpp)
 endif()
@@ -39,7 +38,10 @@ endif()
 # Dependencies
 # ------------------------------------------------------------------------------
 
-set(dmitigr_libs_prg_deps base fsx log os)
+set(dmitigr_libs_prg_deps base fsx)
+if(UNIX)
+  list(APPEND dmitigr_libs_prg_deps log os)
+endif()
 
 # ------------------------------------------------------------------------------
 # Tests

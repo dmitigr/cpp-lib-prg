@@ -25,11 +25,13 @@
 #include "../fsx/filesystem.hpp"
 #include "../log/log.hpp"
 #include "../os/error.hpp"
+#include "info.hpp"
 
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <functional>
+#include <system_error>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -160,6 +162,93 @@ inline void detach(const std::function<void()>& startup,
     log::clog() << "start routine failed" << '\n';
     std::exit(EXIT_FAILURE);
   }
+}
+
+/**
+ * @brief Calls `startup` in the current process.
+ *
+ * @param detach Denotes should the process be forked or not.
+ * @param startup A function to call. This function is called in a current
+ * process if `!detach`, or in a forked process otherwise
+ * @param working_directory A path to a new working directory. If not specified
+ * the directory of executable is assumed.
+ * @param pid_file A path to a PID file. If not specified the name of executable
+ * with ".pid" extension in the working directory is assumed.
+ * @param log_file A path to a log file. If not specified the name of executable
+ * with ".log" extension in the working directory is assumed.
+ * @param log_file_mode A file mode for the log file.
+ *
+ * @par Requires
+ * `startup && !Info::instance().stop_signal`.
+ */
+inline void start(const bool detach,
+  void(*startup)(),
+  std::filesystem::path executable,
+  std::filesystem::path working_directory = {},
+  std::filesystem::path pid_file = {},
+  std::filesystem::path log_file = {},
+  const std::ios_base::openmode log_file_mode =
+    std::ios_base::trunc | std::ios_base::out)
+{
+  DMITIGR_ASSERT(startup);
+  DMITIGR_ASSERT(!executable.empty());
+  auto& info = Info::instance();
+  DMITIGR_ASSERT(!info.stop_signal);
+
+  const auto run = [&startup, &info]
+  {
+    try {
+      startup();
+    } catch (const std::exception& e) {
+      std::cerr << e.what() << std::endl;
+      std::exit(EXIT_FAILURE);
+    } catch (...) {
+      std::cerr << "unknown error" << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
+  };
+
+  // Preparing.
+
+  namespace fs = std::filesystem;
+  if (working_directory.empty())
+    working_directory = executable.parent_path();
+
+  if (detach) {
+    if (pid_file.empty()) {
+      pid_file = working_directory / executable.filename();;
+      pid_file.replace_extension(".pid");
+    }
+    if (log_file.empty()) {
+      log_file = working_directory / executable.filename();
+      log_file.replace_extension(".log");
+    }
+    fs::create_directories(pid_file.parent_path());
+    fs::create_directories(log_file.parent_path());
+  }
+
+  // Starting.
+
+  log::is_clog_with_now = detach;
+  if (!detach) {
+    DMITIGR_ASSERT(!working_directory.empty());
+    std::error_code errc;
+    std::filesystem::current_path(working_directory, errc);
+    if (errc) {
+      std::cerr << "cannot change the working directory to "
+                << working_directory.string() + ": " + errc.message() << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
+
+    if (!pid_file.empty())
+      log::dump_pid(pid_file);
+
+    if (!log_file.empty())
+      log::redirect_clog(log_file, log_file_mode);
+
+    run();
+  } else
+    prg::detach(run, working_directory, pid_file, log_file, log_file_mode);
 }
 
 } // namespace dmitigr::prg

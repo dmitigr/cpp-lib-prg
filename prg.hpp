@@ -22,6 +22,7 @@
 #include "detach.hpp"
 #endif
 #include "exceptions.hpp"
-#include "run.hpp"
+#include "info.hpp"
+#include "util.hpp"
 
 #endif  // DMITIGR_PRG_HPP
