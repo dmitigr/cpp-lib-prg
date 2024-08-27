@@ -15,7 +15,6 @@
 // limitations under the License.
 
 #include "../../prg/command.hpp"
-#include "../../prg/detach.hpp"
 #include "../../prg/info.hpp"
 #include "../../prg/util.hpp"
 
@@ -63,12 +62,6 @@ std::unique_ptr<prg::Info> prg::Info::make(const int argc, const char* const* ar
   return result;
 }
 
-void start()
-{
-  std::clog << "The service is started!" << std::endl;
-  std::clog << "Stop signal is " << prg::Info::instance().stop_signal << std::endl;
-}
-
 int main(int argc, char* argv[])
 try {
   // Parse and set parameters.
@@ -82,10 +75,7 @@ try {
 
   // Check synopsis.
   const auto [detach_o] = cmd.options("detach");
-  const bool detach = detach_o.is_valid_throw_if_value();
-
-  // Start the program.
-  prg::start(detach, start, info.executable_path());
+  detach_o.is_valid_throw_if_value();
 } catch (const std::exception& e) {
   std::cerr << e.what() << std::endl;
   return 1;

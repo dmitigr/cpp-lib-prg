@@ -18,9 +18,6 @@
 #define DMITIGR_PRG_HPP
 
 #include "command.hpp"
-#ifndef _WIN32
-#include "detach.hpp"
-#endif
 #include "exceptions.hpp"
 #include "info.hpp"
 #include "util.hpp"

@@ -30,26 +30,17 @@ set(dmitigr_prg_headers
   info.hpp
   util.hpp
   )
-if(UNIX)
-  list(APPEND dmitigr_prg_headers detach.hpp)
-endif()
 
 # ------------------------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------------------------
 
 set(dmitigr_libs_prg_deps base fsx)
-if(UNIX)
-  list(APPEND dmitigr_libs_prg_deps log os)
-endif()
 
 # ------------------------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------------------------
 
 if(DMITIGR_LIBS_TESTS)
-  set(dmitigr_prg_tests command)
-  if(UNIX AND NOT CMAKE_SYSTEM_NAME MATCHES MSYS|MinGW|Cygwin)
-    list(APPEND dmitigr_prg_tests detach run)
-  endif()
+  set(dmitigr_prg_tests command run)
 endif()
