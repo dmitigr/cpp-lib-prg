@@ -36,12 +36,12 @@ public:
     return static_cast<My_info&>(Info::instance());
   }
 
-  const std::filesystem::path& executable_path() const noexcept override
+  std::filesystem::path executable_path() const override
   {
     return executable_path_;
   }
 
-  const std::string& synopsis() const noexcept override
+  std::string synopsis() const override
   {
     return synopsis_;
   }

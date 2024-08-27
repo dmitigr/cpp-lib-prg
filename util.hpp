@@ -38,8 +38,9 @@ namespace dmitigr::prg {
 {
   const auto& info = Info::instance();
   out << "usage: " << info.program_name();
-  if (!info.synopsis().empty())
-    out << " " << info.synopsis();
+  const auto synop = info.synopsis();
+  if (!synop.empty())
+    out << " " << synop;
   out << std::endl;
   std::exit(code);
 }

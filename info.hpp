@@ -86,10 +86,10 @@ public:
   }
 
   /// @returns The path to the executable.
-  virtual const std::filesystem::path& executable_path() const noexcept = 0;
+  virtual std::filesystem::path executable_path() const = 0;
 
   /// @returns The program synopsis.
-  virtual const std::string& synopsis() const noexcept = 0;
+  virtual std::string synopsis() const = 0;
 
 private:
   inline static std::unique_ptr<Info> instance_;
