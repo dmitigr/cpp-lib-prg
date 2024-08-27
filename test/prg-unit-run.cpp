@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "../../prg/command.hpp"
 #include "../../prg/run.hpp"
 
 #include <iostream>
@@ -23,10 +24,21 @@ namespace prg = dmitigr::prg;
 
 class My_info : public prg::Info {
 public:
-  template<typename ... Types>
-  My_info(Types&& ... args)
-    : prg::Info{std::forward<Types>(args)...}
-  {}
+  /// @returns The vector of commands.
+  const std::vector<prg::Command>& commands() const noexcept
+  {
+    return commands_;
+  }
+
+  static My_info& instance() noexcept
+  {
+    return static_cast<My_info&>(Info::instance());
+  }
+
+  const std::filesystem::path& executable_path() const noexcept override
+  {
+    return executable_path_;
+  }
 
   const std::string& synopsis() const noexcept override
   {
@@ -34,23 +46,32 @@ public:
   }
 
 private:
-  std::string synopsis_{"[--detach]"};
+  friend std::unique_ptr<Info> prg::Info::make(const int, const char* const*);
+  std::filesystem::path executable_path_;
+  std::string synopsis_{};
+  std::vector<prg::Command> commands_;
 };
-std::unique_ptr<prg::Info> prg::Info::make(std::vector<prg::Command> commands)
+std::unique_ptr<prg::Info> prg::Info::make(const int argc, const char* const* argv)
 {
-  return std::make_unique<My_info>(std::move(commands));
+  auto result = std::make_unique<My_info>();
+  result->executable_path_ = canonical(std::filesystem::path{argv[0]});
+  result->commands_ = prg::parsed_commands(argc, argv);
+  result->synopsis_ = "[--detach]";
+  DMITIGR_ASSERT(!result->commands_.empty() && result->commands_[0]);
+  return result;
 }
 
 void start()
 {
   std::clog << "The service is started!" << std::endl;
-  std::clog << "Start flag is " << prg::Info::instance().is_running << std::endl;
+  std::clog << "Stop signal is " << prg::Info::instance().stop_signal << std::endl;
 }
 
 int main(int argc, char* argv[])
 try {
   // Parse and set parameters.
-  const auto& info = prg::Info::initialize(argc, argv);
+  prg::Info::initialize(argc, argv);
+  const auto& info = My_info::instance();
   const auto& cmd = info.commands()[0];
 
   // Pre-check synopsis.
@@ -62,7 +83,7 @@ try {
   const bool detach = detach_o.is_valid_throw_if_value();
 
   // Start the program.
-  prg::start(detach, start);
+  prg::start(detach, start, info.executable_path());
 } catch (const std::exception& e) {
   std::cerr << e.what() << std::endl;
   return 1;

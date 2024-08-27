@@ -18,6 +18,7 @@
 #define DMITIGR_PRG_RUN_HPP
 
 #include "../base/assert.hpp"
+#include "../base/noncopymove.hpp"
 #include "../fsx/filesystem.hpp"
 #include "command.hpp"
 #include "detach.hpp"
@@ -35,13 +36,13 @@
 namespace dmitigr::prg {
 
 /// The program info.
-class Info {
+class Info : Noncopymove {
 public:
   /// The destructor.
   virtual ~Info() = default;
 
   /// Must be defined in the application!!!
-  static std::unique_ptr<Info> make(std::vector<Command> commands);
+  static std::unique_ptr<Info> make(int argc, const char* const* argv);
 
   /// @returns `true` if instance initialized.
   static bool is_initialized() noexcept
@@ -53,7 +54,7 @@ public:
    * Initializes the instance.
    *
    * @par Requires
-   * `!is_initialized()`.
+   * `!is_initialized() && argc && argv`.
    *
    * @par Effects
    * `is_initialized()`.
@@ -65,9 +66,9 @@ public:
   static Info& initialize(const int argc, const char* const* argv)
   {
     DMITIGR_ASSERT(!instance_);
-    auto commands = parsed_commands(argc, argv);
-    DMITIGR_ASSERT(!commands.empty() && commands[0]);
-    instance_ = make(std::move(commands));
+    DMITIGR_ASSERT(argc);
+    DMITIGR_ASSERT(argv);
+    instance_ = make(argc, argv);
     return *instance_;
   }
 
@@ -83,44 +84,22 @@ public:
     return *instance_;
   }
 
-  /// Non copy-constructible.
-  Info(const Info&) = delete;
-
-  /// Non move-constructible.
-  Info(Info&&) = delete;
-
-  /// Non copy-assignable.
-  Info& operator=(const Info&) = delete;
-
-  /// Non move-assignable.
-  Info& operator=(Info&&) = delete;
-
-  /// @returns The vector of commands.
-  const std::vector<Command>& commands() const noexcept
-  {
-    return commands_;
-  }
+  /// The stop signal.
+  std::atomic_int stop_signal{0};
 
   /// @returns The program name.
   std::string program_name() const
   {
-    return std::filesystem::path{commands_[0].name()}.filename().string();
+    return executable_path().filename().string();
   }
+
+  /// @returns The path to the executable.
+  virtual const std::filesystem::path& executable_path() const noexcept = 0;
 
   /// @returns The program synopsis.
   virtual const std::string& synopsis() const noexcept = 0;
 
-  /// The running status of the program.
-  std::atomic_bool is_running{false};
-
-protected:
-  /// The constructor.
-  explicit Info(std::vector<Command> commands)
-    : commands_{std::move(commands)}
-  {}
-
 private:
-  std::vector<Command> commands_;
   inline static std::unique_ptr<Info> instance_;
 };
 
@@ -131,15 +110,12 @@ private:
  * program with unsuccessful exit code.
  *
  * @par Requires
- * `!Info::instance().commands().empty() && Info::instance().commands()[0]`.
- *
- * @param info A formatted information to print.
+ * `Info::is_initialized()`.
  */
 [[noreturn]] inline void exit_usage(const int code = EXIT_FAILURE,
   std::ostream& out = std::cerr)
 {
   const auto& info = Info::instance();
-  DMITIGR_ASSERT(!info.commands().empty() && info.commands()[0]);
   out << "usage: " << info.program_name();
   if (!info.synopsis().empty())
     out << " " << info.synopsis();
@@ -152,12 +128,7 @@ private:
 /// A typical signal handler.
 inline void handle_signal(const int sig) noexcept
 {
-  if (sig == SIGINT)
-    Info::instance().is_running = false; // normal shutdown
-#ifndef __APPLE__
-  else if (sig == SIGTERM)
-    std::quick_exit(sig); // abnormal shutdown
-#endif
+  Info::instance().stop_signal = sig;
 }
 
 /**
@@ -215,6 +186,7 @@ inline void set_cleanup(void(*cleanup)()) noexcept
  */
 inline void start(const bool detach,
   void(*startup)(),
+  std::filesystem::path executable,
   std::filesystem::path working_directory = {},
   std::filesystem::path pid_file = {},
   std::filesystem::path log_file = {},
@@ -222,13 +194,12 @@ inline void start(const bool detach,
     std::ios_base::trunc | std::ios_base::out)
 {
   DMITIGR_ASSERT(startup);
+  DMITIGR_ASSERT(!executable.empty());
   auto& info = Info::instance();
-  DMITIGR_ASSERT(!info.is_running);
-  DMITIGR_ASSERT(!info.commands().empty() && info.commands()[0]);
+  DMITIGR_ASSERT(!info.stop_signal);
 
   const auto run = [&startup, &info]
   {
-    info.is_running = true;
     try {
       startup();
     } catch (const std::exception& e) {
@@ -243,7 +214,6 @@ inline void start(const bool detach,
   // Preparing.
 
   namespace fs = std::filesystem;
-  const fs::path executable{info.commands()[0].name()};
   if (working_directory.empty())
     working_directory = executable.parent_path();
 
@@ -302,10 +272,10 @@ auto with_shutdown_on_error(F&& f, const std::string_view where) noexcept
   try {
     return f();
   } catch (const std::exception& e) {
-    Info::instance().is_running = false; // should cause a normal shutdown
+    Info::instance().stop_signal = SIGTERM; // should cause a normal shutdown
     log::clog() << where << ": " << e.what() << ". Shutting down!\n";
   } catch (...) {
-    Info::instance().is_running = false; // should cause a normal shutdown
+    Info::instance().stop_signal = SIGTERM; // should cause a normal shutdown
     log::clog() << where << ": unknown error! Shutting down!\n";
   }
 }
