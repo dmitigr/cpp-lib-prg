@@ -26,7 +26,6 @@
 #include <atomic>
 #include <csignal>
 #include <cstdlib>
-#include <exception> // set_terminate()
 #include <iostream>
 #include <memory>
 #include <string>
@@ -150,21 +149,6 @@ inline void set_signals(void(*signals)(int) = &handle_signal) noexcept
   std::signal(SIGTERM, signals);
 }
 
-/**
- * @brief Assigns the `cleanup` as a handler of:
- *   - std::set_terminate();
- *   - std::at_quick_exit() (not available on macOS);
- *   - std::atexit().
- */
-inline void set_cleanup(void(*cleanup)()) noexcept
-{
-  std::set_terminate(cleanup);
-#ifndef __APPLE__
-  std::at_quick_exit(cleanup);
-#endif
-  std::atexit(cleanup);
-}
-
 // =============================================================================
 
 /**
@@ -182,7 +166,7 @@ inline void set_cleanup(void(*cleanup)()) noexcept
  * @param log_file_mode A file mode for the log file.
  *
  * @par Requires
- * `startup && !Info::instance().is_running && !Info::instance().commands().empty()`.
+ * `startup && !Info::instance().stop_signal`.
  */
 inline void start(const bool detach,
   void(*startup)(),
@@ -260,7 +244,7 @@ inline void start(const bool detach,
  * @brief Calls the function `f`.
  *
  * @details If the call of `callback` fails with exception then
- * `Info::instance().is_running` flag is sets to `false` which should
+ * `Info::instance().stop_signal` flag is sets to `SIGTERM` which should
  * cause the normal application shutdown.
  *
  * @param f A function to call
