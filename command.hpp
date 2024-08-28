@@ -291,10 +291,11 @@ inline bool is_option(const std::string_view arg) noexcept
 }
 
 /**
- * @returns The parsed command.
+ * @returns The command.
  *
  * @param[in,out] argc_p The pointer to the size of `*argv_p`.
  * @param[in,out] argv_p The pointer to the arguments.
+ * @param[in] may_have_params `true` if the command may have parameters.
  *
  * @details Assumed command syntax:
  *   - command [--option[=[value]]] [--] [parameter ...]
@@ -310,7 +311,7 @@ inline bool is_option(const std::string_view arg) noexcept
  * `(argc_p && *argc_p > 0 && argv_p && *argv_p)` and
  * `((*argv_p)[i] && std::strlen((*argv_p)[0]) > 0)`.
  */
-inline Command parsed_command(int* const argc_p, const char* const** const argv_p,
+inline Command make_command(int* const argc_p, const char* const** const argv_p,
   const bool may_have_params)
 {
   if (!argc_p || !(*argc_p > 0))

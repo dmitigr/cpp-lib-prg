@@ -28,7 +28,7 @@ int main(int argc, const char* const argv[])
     ASSERT(argc);
     auto argc_copy = argc;
     auto argv_copy = argv;
-    const auto cmd = prg::parsed_command(&argc_copy, &argv_copy, true);
+    const auto cmd = prg::make_command(&argc_copy, &argv_copy, true);
     ASSERT(!argc_copy);
     ASSERT(argv_copy == argv + argc);
     const auto name = cmd.name();

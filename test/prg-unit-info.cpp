@@ -55,7 +55,7 @@ std::unique_ptr<prg::Info> prg::Info::make(int argc, const char* const* argv)
 {
   auto result = std::make_unique<My_info>();
   result->executable_path_ = canonical(std::filesystem::path{argv[0]});
-  result->command_ = prg::parsed_command(&argc, &argv, true);
+  result->command_ = prg::make_command(&argc, &argv, true);
   result->synopsis_ = "[--detach]";
   DMITIGR_ASSERT(!result->command_.name().empty());
   return result;
