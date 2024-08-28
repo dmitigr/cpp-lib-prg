@@ -72,7 +72,7 @@ int main(int argc, const char* const argv[])
         {
           std::cout << "--"<<opts.name();
           if (opts)
-            std::cout <<": " << opts.value_of_optional()
+            std::cout <<": " << opts.value()
               .value_or("value not specified");
           else
             std::cout <<": option not specified";

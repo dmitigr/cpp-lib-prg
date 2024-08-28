@@ -106,53 +106,44 @@ public:
       return name_;
     }
 
-    /// @returns The value of this option.
-    const std::optional<std::string>& value_of_optional() const
-    {
-      return value_;
-    }
-
     /**
-     * @returns The value of this mandatory option.
+     * @returns The value of this option.
      *
      * @par Requires
      * `is_valid()`.
      */
-    const std::optional<std::string>& value_of_mandatory() const
+    const std::optional<std::string>& value() const
     {
       if (!is_valid())
-        throw_requirement("is mandatory");
-
+        throw_requirement("is not valid");
       return value_;
     }
 
     /**
-     * @returns The not null value of this mandatory option.
+     * @returns The not null value of this option.
      *
      * @par Requires
      * `value_of_mandatory()`.
      */
-    const std::string& value_of_mandatory_not_null() const
+    const std::string& value_not_null() const
     {
-      const auto& val = value_of_mandatory();
+      const auto& val = value();
       if (!val)
         throw_requirement("requires a value");
-
       return *val;
     }
 
     /**
-     * @returns The not empty value of this mandatory option.
+     * @returns The not empty value of this option.
      *
      * @par Requires
-     * `!value_of_mandatory_not_null().empty()`.
+     * `!value_not_null().empty()`.
      */
-    const std::string& value_of_mandatory_not_empty() const
+    const std::string& value_not_empty() const
     {
-      const auto& val = value_of_mandatory_not_null();
+      const auto& val = value_not_null();
       if (val.empty())
         throw_requirement("requires a non empty value");
-
       return val;
     }
 
