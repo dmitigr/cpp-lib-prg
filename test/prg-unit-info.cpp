@@ -46,7 +46,6 @@ public:
   }
 
 private:
-  friend std::unique_ptr<Info> prg::Info::make();
   std::filesystem::path executable_path_;
   std::string synopsis_{};
   prg::Command command_;
