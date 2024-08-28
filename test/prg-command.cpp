@@ -21,66 +21,68 @@
 
 #define ASSERT(a) DMITIGR_ASSERT(a)
 
-int main(const int argc, const char* const argv[])
+int main(int argc, const char* const argv[])
 {
   try {
     namespace prg = dmitigr::prg;
-    auto commands = prg::parsed_commands(argc, argv);
-    std::cout << "Number of commands: " << commands.size() << std::endl;
-    for (const auto& cmd : commands) {
-      const auto name = cmd.name();
-      ASSERT(!name.empty());
-      std::cout << "Command: " << name << std::endl;
+    ASSERT(argc);
+    auto argc_copy = argc;
+    auto argv_copy = argv;
+    const auto cmd = prg::parsed_command(&argc_copy, &argv_copy, true);
+    ASSERT(!argc_copy);
+    ASSERT(argv_copy == argv + argc);
+    const auto name = cmd.name();
+    ASSERT(!name.empty());
+    std::cout << "Command: " << name << std::endl;
 
-      // Print all passed options.
+    // Print all passed options.
+    {
+      const auto& opts = cmd.options();
+      std::cout << opts.size() << " options specified";
+      if (!opts.empty()) {
+        std::cout << ":" << std::endl;
+        for (const auto& o : opts) {
+          std::cout << "  " << o.first;
+          if (o.second)
+            std::cout << " = " << *o.second;
+          std::cout << std::endl;
+        }
+      } else
+        std::cout << "." << std::endl;
+    }
+
+    // Print all passed command parameters.
+    {
+      const auto& params = cmd.parameters();
+      std::cout << params.size() << " parameters specified";
+      if (!params.empty()) {
+        std::cout << ":" << std::endl;
+        for (const auto& param : params)
+          std::cout << "  " << param << std::endl;
+      } else
+        std::cout << "." << std::endl;
+    }
+
+    // Check valid options: --opt1, --opt2, --opt3.
+    try {
+      const auto [o1, o2, o3] = cmd.options_strict("opt1", "opt2", "opt3");
+      [](const auto... opts)
       {
-        const auto& opts = cmd.options();
-        std::cout << opts.size() << " options specified";
-        if (!opts.empty()) {
-          std::cout << ":" << std::endl;
-          for (const auto& o : opts) {
-            std::cout << "  " << o.first;
-            if (o.second)
-              std::cout << " = " << *o.second;
-            std::cout << std::endl;
-          }
-        } else
-          std::cout << "." << std::endl;
-      }
-
-      // Print all passed command parameters.
-      {
-        const auto& params = cmd.parameters();
-        std::cout << params.size() << " parameters specified";
-        if (!params.empty()) {
-          std::cout << ":" << std::endl;
-          for (const auto& param : params)
-            std::cout << "  " << param << std::endl;
-        } else
-          std::cout << "." << std::endl;
-      }
-
-      // Check valid options: --opt1, --opt2, --opt3.
-      try {
-        const auto [o1, o2, o3] = cmd.options_strict("opt1", "opt2", "opt3");
-        [](const auto... opts)
+        ([opts]
         {
-          ([opts]
-          {
-            std::cout << "--"<<opts.name();
-            if (opts)
-              std::cout <<": " << opts.value_of_optional()
-                .value_or("value not specified");
-            else
-              std::cout <<": option not specified";
-            std::cout << std::endl;
-          }(), ...);
-        }(o1, o2, o3);
-      } catch (const prg::Exception& e) {
-        std::cerr << e.what()
-                  << ". Valid options are: --opt1, --opt2, --opt3" << std::endl;
-        return 1;
-      }
+          std::cout << "--"<<opts.name();
+          if (opts)
+            std::cout <<": " << opts.value_of_optional()
+              .value_or("value not specified");
+          else
+            std::cout <<": option not specified";
+          std::cout << std::endl;
+        }(), ...);
+      }(o1, o2, o3);
+    } catch (const std::runtime_error& e) {
+      std::cerr << e.what()
+                << ". Valid options are: --opt1, --opt2, --opt3" << std::endl;
+      return 1;
     }
   } catch (const std::exception& e) {
     std::cerr << "error: " << e.what() << std::endl;

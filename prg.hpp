@@ -18,7 +18,6 @@
 #define DMITIGR_PRG_HPP
 
 #include "command.hpp"
-#include "exceptions.hpp"
 #include "info.hpp"
 #include "util.hpp"
 

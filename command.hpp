@@ -18,11 +18,11 @@
 #define DMITIGR_PRG_COMMAND_HPP
 
 #include "../base/assert.hpp"
-#include "exceptions.hpp"
 
 #include <algorithm>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -187,19 +187,19 @@ public:
     [[noreturn]] void throw_requirement(const std::string_view requirement) const
     {
       DMITIGR_ASSERT(!requirement.empty());
-      throw Exception{std::string{"option --"}
+      throw std::runtime_error{std::string{"option --"}
         .append(name_).append(" ").append(requirement)};
     }
   };
 
-  /// The default constructor. (Constructs invalid instance.)
+  /// The default constructor.
   Command() = default;
 
   /**
    * @brief The constructor.
    *
    * @par Requires
-   * `!path.empty()`.
+   * `!name.empty()`.
    */
   explicit Command(std::string name,
     Option_map options = {}, Parameter_vector parameters = {})
@@ -208,20 +208,7 @@ public:
     , parameters_{std::move(parameters)}
   {
     if (name_.empty())
-      throw Exception{"empty command name"};
-    DMITIGR_ASSERT(is_valid());
-  }
-
-  /// @returns `false` if this instance is default-constructed.
-  bool is_valid() const noexcept
-  {
-    return !name_.empty();
-  }
-
-  /// @returns `is_valid()`.
-  explicit operator bool() const noexcept
-  {
-    return is_valid();
+      throw std::invalid_argument{"empty command name"};
   }
 
   /// @returns The command name (or program path).
@@ -268,7 +255,7 @@ public:
     const std::vector<std::string_view> opts{std::forward<Types>(names)...};
     for (const auto& kv : options_)
       if (find(cbegin(opts), cend(opts), kv.first) == cend(opts))
-        throw Exception{std::string{"unexpected option --"}.append(kv.first)};
+        throw std::runtime_error{std::string{"unexpected option --"}.append(kv.first)};
     return options(std::forward<Types>(names)...);
   }
 
@@ -287,7 +274,7 @@ public:
   const std::string& operator[](const std::size_t parameter_index) const
   {
     if (!(parameter_index < parameters_.size()))
-      throw Exception{"invalid command parameter index"};
+      throw std::invalid_argument{"invalid command parameter index"};
     return parameters_[parameter_index];
   }
 
@@ -297,45 +284,47 @@ private:
   Parameter_vector parameters_;
 };
 
+/// @returns `true` if `arg` represents a command line option.
+inline bool is_option(const std::string_view arg) noexcept
+{
+  return arg.data() && arg.find("--") == 0;
+}
+
 /**
- * @returns The vector of parsed commands.
+ * @returns The parsed command.
  *
- * @param argc The number of arguments in `argv`.
- * @param argv The arguments.
+ * @param[in,out] argc_p The pointer to the size of `*argv_p`.
+ * @param[in,out] argv_p The pointer to the arguments.
  *
- * @details Assumed syntax as follows:
- *   - one command mode: command [--option[=[value]]] [--] [parameter ...]
- *   - multicommand mode: command [--option[=[value]]] [-- [parameter ...]] ...
+ * @details Assumed command syntax:
+ *   - command [--option[=[value]]] [--] [parameter ...]
  *
  * Each option may have a value specified after the "=" character. The sequence
- * of two dashes ("--") indicates "end of options" (or "end of commands" in
- * multicommand mode), so the remaining arguments should be treated as parameters.
+ * of two dashes ("--") indicates "end of options", so the remaining arguments
+ * are treated as parameters.
  *
- * @remarks Short options notation (e.g. `-o` or `-o 1`) doesn't supported
- * currently and always treated as parameters.
+ * @remarks Short options notation (e.g. `-o` or `-o=1`) doesn't supported
+ * and always treated as parameters.
  *
  * @par Requires
- * `(argc > 0 && argv && argv[0] && std::strlen(argv[0]) > 0)`.
+ * `(argc_p && *argc_p > 0 && argv_p && *argv_p)` and
+ * `((*argv_p)[i] && std::strlen((*argv_p)[0]) > 0)`.
  */
-inline std::vector<Command> parsed_commands(const int argc, const char* const* argv,
-  const bool is_one_command_mode = {})
+inline Command parsed_command(int* const argc_p, const char* const** const argv_p,
+  const bool may_have_params)
 {
-  if (!(argc > 0))
-    throw Exception{"invalid count of arguments (argc)"};
-  else if (!argv)
-    throw Exception{"invalid vector of arguments (argv)"};
-
-  static const auto is_opt = [](const std::string_view arg) noexcept
-  {
-    return arg.find("--") == 0;
-  };
+  if (!argc_p || !(*argc_p > 0))
+    throw std::invalid_argument{"invalid argc"};
+  else if (!argv_p || !*argv_p)
+    throw std::invalid_argument{"invalid argv"};
 
   static const auto opt = [](const std::string_view arg)
     -> std::optional<std::pair<std::string, std::optional<std::string>>>
     {
-      if (is_opt(arg)) {
+      DMITIGR_ASSERT(arg.data());
+      if (is_option(arg)) {
         if (arg.size() == 2) {
-          // Explicit end-of-commands.
+          // Empty option (end-of-options marker).
           return std::make_pair(std::string{}, std::nullopt);
         } else if (const auto pos = arg.find('=', 2); pos != std::string::npos) {
           // Option with value.
@@ -351,18 +340,25 @@ inline std::vector<Command> parsed_commands(const int argc, const char* const* a
         return std::nullopt;
     };
 
-  int argi{};
-  std::vector<Command> result;
-  while (argi < argc) {
+  static const auto check_argv = [](const int argi, const char* const* argv)
+  {
     if (!argv[argi])
-      throw Exception{"invalid vector of arguments (argv)"};
+      throw std::invalid_argument{std::string{"invalid argv["}
+        .append(std::to_string(argi)).append("]")};
+  };
+
+  int argi{};
+  const int argc{*argc_p};
+  const char* const* argv{*argv_p};
+  {
+    check_argv(argi, argv);
 
     std::string name{argv[argi]};
     if (name.empty())
-      throw Exception{std::string{"empty command name at argv["}
+      throw std::invalid_argument{std::string{"empty argv["}
         .append(std::to_string(argi)).append("]")};
 
-    // Add another command.
+    // Declare command data.
     Command::Option_map options;
     Command::Parameter_vector parameters;
 
@@ -370,78 +366,38 @@ inline std::vector<Command> parsed_commands(const int argc, const char* const* a
     ++argi;
 
     // Collect options.
-    bool is_end_of_options_detected{};
     for (; argi < argc; ++argi) {
+      check_argv(argi, argv);
       if (auto o = opt(argv[argi])) {
         if (o->first.empty()) {
-          is_end_of_options_detected = true;
+          // End-of-options detected.
           ++argi;
           break;
         } else
           options[std::move(o->first)] = std::move(o->second);
       } else
-        // A command (or an parameter) detected.
+        // A parameter detected.
         break;
     }
 
-    // Collect parameters if the current command is the last one.
-    if (is_end_of_options_detected || is_one_command_mode) {
-      for (; argi < argc; ++argi)
+    // Collect parameters if the command may have ones.
+    if (may_have_params) {
+      for (; argi < argc; ++argi) {
+        check_argv(argi, argv);
+        if (is_option(argv[argi]))
+          throw std::runtime_error{"options must precede the parameters"};
         parameters.emplace_back(argv[argi]);
+      }
     }
 
+    // Modify output arguments.
+    *argc_p -= argi;
+    *argv_p += argi;
+
     // Collect result.
-    result.emplace_back(std::move(name), std::move(options), std::move(parameters));
+    return Command{std::move(name), std::move(options), std::move(parameters)};
   }
-  DMITIGR_ASSERT(!result.empty());
-  return result;
 }
-
-/// @overload
-inline Command parsed_command(const int argc, const char* const* argv)
-{
-  return parsed_commands(argc, argv, true)[0];
-}
-
-namespace detail {
-template<typename F, class C>
-inline std::string command_id(const F& appender,
-  const C& commands, const std::size_t offset, const std::string_view delim)
-{
-  std::string result;
-  const auto sz = commands.size();
-  if (!(offset < sz))
-    throw Exception{"cannot generate command ID: offset is out of range"};
-  const auto e = commands.cend();
-  for (auto i = commands.cbegin() + offset; i != e; ++i)
-    appender(result, *i, delim);
-  result.pop_back();
-  return result;
-}
-} // namespace detail
-
-/// @returns The command identifier.
-inline std::string command_id(const std::vector<Command>& commands,
-  const std::size_t offset = 1, const std::string_view delim = ".")
-{
-  return detail::command_id([](std::string& result,
-      const Command& command, const std::string_view delim)
-  {
-    result.append(command.name()).append(delim);
-  }, commands, offset, delim);
-}
-
-/// @overload
-inline std::string command_id(const std::vector<std::string>& parameters,
-  const std::size_t offset = 0, const std::string_view delim = ".")
-{
-  return detail::command_id([](std::string& result,
-      const std::string_view param, const std::string_view delim)
-  {
-    result.append(param).append(delim);
-  }, parameters, offset, delim);
-}
-
 
 } // namespace dmitigr::prg
 

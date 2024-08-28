@@ -26,7 +26,6 @@ dmitigr_libs_set_library_info(prg 0 0 0 "Program stuff")
 
 set(dmitigr_prg_headers
   command.hpp
-  exceptions.hpp
   info.hpp
   util.hpp
   )
@@ -42,5 +41,5 @@ set(dmitigr_libs_prg_deps base fsx)
 # ------------------------------------------------------------------------------
 
 if(DMITIGR_LIBS_TESTS)
-  set(dmitigr_prg_tests command run)
+  set(dmitigr_prg_tests command info)
 endif()

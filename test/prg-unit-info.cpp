@@ -25,10 +25,9 @@ namespace prg = dmitigr::prg;
 
 class My_info : public prg::Info {
 public:
-  /// @returns The vector of commands.
-  const std::vector<prg::Command>& commands() const noexcept
+  const prg::Command& command() const noexcept
   {
-    return commands_;
+    return command_;
   }
 
   static My_info& instance() noexcept
@@ -50,15 +49,15 @@ private:
   friend std::unique_ptr<Info> prg::Info::make(const int, const char* const*);
   std::filesystem::path executable_path_;
   std::string synopsis_{};
-  std::vector<prg::Command> commands_;
+  prg::Command command_;
 };
-std::unique_ptr<prg::Info> prg::Info::make(const int argc, const char* const* argv)
+std::unique_ptr<prg::Info> prg::Info::make(int argc, const char* const* argv)
 {
   auto result = std::make_unique<My_info>();
   result->executable_path_ = canonical(std::filesystem::path{argv[0]});
-  result->commands_ = prg::parsed_commands(argc, argv);
+  result->command_ = prg::parsed_command(&argc, &argv, true);
   result->synopsis_ = "[--detach]";
-  DMITIGR_ASSERT(!result->commands_.empty() && result->commands_[0]);
+  DMITIGR_ASSERT(!result->command_.name().empty());
   return result;
 }
 
@@ -67,7 +66,7 @@ try {
   // Parse and set parameters.
   prg::Info::initialize(argc, argv);
   const auto& info = My_info::instance();
-  const auto& cmd = info.commands()[0];
+  const auto& cmd = info.command();
 
   // Pre-check synopsis.
   if (cmd.options().size() > 1 || !cmd.parameters().empty())
