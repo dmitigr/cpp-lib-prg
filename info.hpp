@@ -33,8 +33,12 @@ public:
   /// The destructor.
   virtual ~Info() = default;
 
-  /// Must be defined in the application!!!
-  static std::unique_ptr<Info> make(int argc, const char* const* argv);
+  /**
+   * @returns Valid pointer.
+   *
+   * @details Must be defined in the application!!!
+   */
+  static std::unique_ptr<Info> make();
 
   /// @returns `true` if instance initialized.
   static bool is_initialized() noexcept
@@ -60,7 +64,10 @@ public:
     DMITIGR_ASSERT(!instance_);
     DMITIGR_ASSERT(argc);
     DMITIGR_ASSERT(argv);
-    instance_ = make(argc, argv);
+    instance_ = make();
+    DMITIGR_ASSERT(instance_);
+    instance_->init(argc, argv);
+    DMITIGR_ASSERT(is_initialized());
     return *instance_;
   }
 
@@ -90,6 +97,10 @@ public:
 
   /// @returns The program synopsis.
   virtual std::string synopsis() const = 0;
+
+protected:
+  /// Called from initialize().
+  virtual void init(int argc, const char* const* argv) = 0;
 
 private:
   inline static std::unique_ptr<Info> instance_;

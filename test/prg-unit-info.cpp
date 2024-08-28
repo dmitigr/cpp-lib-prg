@@ -42,23 +42,25 @@ public:
 
   std::string synopsis() const override
   {
-    return synopsis_;
+    return "[--detach]";
   }
 
 private:
-  friend std::unique_ptr<Info> prg::Info::make(const int, const char* const*);
+  friend std::unique_ptr<Info> prg::Info::make();
   std::filesystem::path executable_path_;
   std::string synopsis_{};
   prg::Command command_;
+
+  void init(int argc, const char* const* argv) override
+  {
+    executable_path_ = canonical(std::filesystem::path{argv[0]});
+    command_ = prg::make_command(&argc, &argv, true);
+    DMITIGR_ASSERT(!command_.name().empty());
+  }
 };
-std::unique_ptr<prg::Info> prg::Info::make(int argc, const char* const* argv)
+std::unique_ptr<prg::Info> prg::Info::make()
 {
-  auto result = std::make_unique<My_info>();
-  result->executable_path_ = canonical(std::filesystem::path{argv[0]});
-  result->command_ = prg::make_command(&argc, &argv, true);
-  result->synopsis_ = "[--detach]";
-  DMITIGR_ASSERT(!result->command_.name().empty());
-  return result;
+  return std::make_unique<My_info>();
 }
 
 int main(int argc, char* argv[])
