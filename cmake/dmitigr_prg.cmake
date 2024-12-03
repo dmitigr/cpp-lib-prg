@@ -34,7 +34,7 @@ set(dmitigr_prg_headers
 # Dependencies
 # ------------------------------------------------------------------------------
 
-set(dmitigr_libs_prg_deps base fsx)
+set(dmitigr_libs_prg_deps base)
 
 # ------------------------------------------------------------------------------
 # Tests
