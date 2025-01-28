@@ -21,7 +21,7 @@
 
 #include <csignal>
 #include <cstdlib>
-#include <iostream>
+#include <ostream>
 #include <string_view>
 
 namespace dmitigr::prg {
@@ -33,8 +33,8 @@ namespace dmitigr::prg {
  * @par Requires
  * `Info::is_initialized()`.
  */
-[[noreturn]] inline void exit_usage(const int code = EXIT_FAILURE,
-  std::ostream& out = std::cerr)
+[[noreturn]] inline void exit_usage(std::ostream& out,
+  const int code = EXIT_FAILURE)
 {
   const auto& info = Info::instance();
   out << "usage: " << info.program_name();

@@ -71,7 +71,7 @@ try {
 
   // Pre-check synopsis.
   if (cmd.options().size() > 1 || !cmd.parameters().empty())
-    prg::exit_usage();
+    prg::exit_usage(std::cerr);
 
   // Check synopsis.
   const auto [detach_o] = cmd.options("detach");
