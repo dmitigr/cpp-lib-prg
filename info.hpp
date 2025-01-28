@@ -18,10 +18,10 @@
 #define DMITIGR_PRG_INFO_HPP
 
 #include "../base/assert.hpp"
-#include "../base/fsx.hpp"
 #include "../base/noncopymove.hpp"
 
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <string>
 
